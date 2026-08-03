@@ -82,6 +82,40 @@ namespace tsom
 		},
 		{}));
 
+		registry.RegisterClass(EntityClass("cylinder_planet", {
+			{
+				EntityClass::Property {.name = "BlockSize",                     .type = EntityPropertyType::Float,       .defaultValue = EntityPropertySingleValue<EntityPropertyType::Float>(1.f),                                     .isNetworked = true },
+				EntityClass::Property {.name = "Radius",                        .type = EntityPropertyType::Float,       .defaultValue = EntityPropertySingleValue<EntityPropertyType::Float>(80.f),                                    .isNetworked = true },
+				EntityClass::Property {.name = "Height",                        .type = EntityPropertyType::Float,       .defaultValue = EntityPropertySingleValue<EntityPropertyType::Float>(160.f),                                   .isNetworked = true },
+				EntityClass::Property {.name = "Gravity",                       .type = EntityPropertyType::Float,       .defaultValue = EntityPropertySingleValue<EntityPropertyType::Float>(9.81f),                                   .isNetworked = true },
+				EntityClass::Property {.name = "Seed",                          .type = EntityPropertyType::Integer,     .defaultValue = EntityPropertySingleValue<EntityPropertyType::Integer>(0),                                     .isNetworked = true },
+				EntityClass::Property {.name = "Atmosphere.Shape",              .type = EntityPropertyType::String,      .defaultValue = EntityPropertySingleValue<EntityPropertyType::String>("Cylinder"),                             .isNetworked = true },
+				EntityClass::Property {.name = "Atmosphere.ShapeSettings",      .type = EntityPropertyType::Float4,      .defaultValue = EntityPropertySingleValue<EntityPropertyType::Float4>(Nz::Vector4f(80.f, 160.f, 0.f, 0.f)),    .isNetworked = true },
+				EntityClass::Property {.name = "Atmosphere.MaxHeight",          .type = EntityPropertyType::Float,       .defaultValue = EntityPropertySingleValue<EntityPropertyType::Float>(192.f),                                   .isNetworked = true },
+				EntityClass::Property {.name = "Atmosphere.ScatteringStrength", .type = EntityPropertyType::Float,       .defaultValue = EntityPropertySingleValue<EntityPropertyType::Float>(1.f),                                     .isNetworked = true },
+				EntityClass::Property {.name = "Atmosphere.WaveLengths",        .type = EntityPropertyType::Float3,      .defaultValue = EntityPropertySingleValue<EntityPropertyType::Float3>(Nz::Vector3f(700.f, 530.f, 440.f)),      .isNetworked = true },
+				EntityClass::Property {.name = "Atmosphere.MieScattering",      .type = EntityPropertyType::Float,       .defaultValue = EntityPropertySingleValue<EntityPropertyType::Float>(0.9),                                     .isNetworked = true },
+				EntityClass::Property {.name = "Atmosphere.MieHeight",          .type = EntityPropertyType::Float,       .defaultValue = EntityPropertySingleValue<EntityPropertyType::Float>(5.f),                                     .isNetworked = true },
+				EntityClass::Property {.name = "Atmosphere.DensityFalloff",     .type = EntityPropertyType::Float,       .defaultValue = EntityPropertySingleValue<EntityPropertyType::Float>(20.f),                                    .isNetworked = true },
+			}
+			},
+		{
+			.onInit = [this](entt::handle entity)
+			{
+				auto& entityInstance = entity.get<ClassInstanceComponent>();
+
+				float blockSize = entityInstance.GetProperty<EntityPropertyType::Float>(0);
+				float radius = entityInstance.GetProperty<EntityPropertyType::Float>(1);
+				float height = entityInstance.GetProperty<EntityPropertyType::Float>(2);
+				float gravity = entityInstance.GetProperty<EntityPropertyType::Float>(3);
+				Nz::Int64 seed = entityInstance.GetProperty<EntityPropertyType::Integer>(4);
+
+				// TODO : Implement CylinderPlanet and use it below instead of TorusPlanet
+				InitializePlanetEntity(entity, std::make_shared<TorusPlanet>(m_app, blockSize, Nz::SafeCaster(seed), gravity, radius, height));
+			}
+		},
+		{}));
+
 		registry.RegisterClass(EntityClass("ship", {
 			{
 				EntityClass::Property { .name = "CellSize", .type = EntityPropertyType::Float, .defaultValue = EntityPropertySingleValue<EntityPropertyType::Float>(1.f), .isNetworked = true }

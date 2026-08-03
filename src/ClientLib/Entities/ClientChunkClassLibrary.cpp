@@ -45,6 +45,8 @@ namespace tsom
 				atmosphereScattering.shape = AtmosphereScatteringShape::RoundCube;
 			else if (atmosphereShape == "Torus")
 				atmosphereScattering.shape = AtmosphereScatteringShape::Torus;
+			else if (atmosphereShape == "Cylinder")
+				atmosphereScattering.shape = AtmosphereScatteringShape::Cylinder;
 			else
 			{
 				spdlog::error("invalid atmosphere shape {}", atmosphereShape);

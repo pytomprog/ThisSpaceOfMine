@@ -16,7 +16,8 @@ namespace tsom
 	enum class AtmosphereScatteringShape
 	{
 		RoundCube,
-		Torus
+		Torus,
+		Cylinder
 	};
 
 	struct AtmosphereScattering

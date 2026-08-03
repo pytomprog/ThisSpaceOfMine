@@ -402,7 +402,7 @@ namespace tsom
 				if (ImGui::DragFloat3("Planet dimensions", planetDimensions, 1.0f, 0.0f, 200.f))
 					atmosphereScattering.planetDimensions = Nz::Vector3f(planetDimensions[0], planetDimensions[1], planetDimensions[2]);*/
 
-				const char* items[] = {"Round cube", "Torus"};
+				const char* items[] = {"Round cube", "Torus", "Cylinder"};
 				int selectedItem = static_cast<int>(atmosphereScattering.shape);
 				if (ImGui::Combo("Atmosphere type", &selectedItem, items, IM_ARRAYSIZE(items)))
 				{
@@ -424,6 +424,13 @@ namespace tsom
 					{
 						ImGui::DragFloat("Torus radius", &atmosphereScattering.shapeSettings.x, 1.0f, 0.0f, Nz::MaxValue());
 						ImGui::DragFloat("Torus thickness", &atmosphereScattering.shapeSettings.y, 1.0f, 0.0f, Nz::MaxValue());
+						break;
+					}
+
+					case AtmosphereScatteringShape::Cylinder:
+					{
+						ImGui::DragFloat("Cylinder radius", &atmosphereScattering.shapeSettings.x, 1.0f, 0.0f, Nz::MaxValue());
+						ImGui::DragFloat("Cylinder height", &atmosphereScattering.shapeSettings.y, 1.0f, 0.0f, Nz::MaxValue());
 						break;
 					}
 				}

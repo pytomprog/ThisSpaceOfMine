@@ -7,6 +7,7 @@ option MaxAtmosphereCount: u32;
 
 const AtmosphereShape_RoundCube: u32 = 0;
 const AtmosphereType_Torus: u32 = 1;
+const AtmosphereType_Cylinder: u32 = 2;
 
 [layout(std140)]
 struct AtmosphereScatteringData
@@ -99,6 +100,16 @@ fn main(input: VertOut) -> FragOut
 		else if (atmosphere.shape == AtmosphereType_Torus)
 		{
 			color = ComputeTorusScattering(
+				color,                          // scene color, the color of the current pixel being rendered
+				cameraPos,                      // the position of the camera
+				viewVector,                     // the camera vector (ray direction of this pixel)
+				linearDepth,                    // max dist, essentially the scene depth
+				atmosphere
+			);
+		}
+		else if (atmosphere.shape == AtmosphereType_Cylinder)
+		{
+			color = ComputeCylinderScattering(
 				color,                          // scene color, the color of the current pixel being rendered
 				cameraPos,                      // the position of the camera
 				viewVector,                     // the camera vector (ray direction of this pixel)
@@ -239,6 +250,65 @@ fn ComputeTorusScattering(
 	return originalColorTransmittance * sceneColor + skyColor * sceneColorLuminance;
 }
 
+fn ComputeCylinderScattering(
+	sceneColor: vec3[f32],		// the color of the scene
+	viewerPos: vec3[f32], 			// the start of the ray (the camera position)
+	viewerDir: vec3[f32], 			// the direction of the ray (the camera vector)
+	maxDist: f32, 			    // the maximum distance the ray can travel (because something is in the way, like an object)
+	atmosphere: AtmosphereScatteringData
+) -> vec3[f32]
+{
+	let cylinder = atmosphere.shapeSettings.xy; //< radius / height
+
+	let hitInfo = raySphere(atmosphere.planetPosition, cylinder.x + atmosphere.atmosphereMaxHeight, viewerPos, viewerDir);
+	if (hitInfo.x < 0.0)
+		return sceneColor;
+
+	let distanceToAtmosphere = hitInfo.x;
+	let distanceThroughAtmosphere = min(hitInfo.y, maxDist - distanceToAtmosphere);
+
+	if (distanceThroughAtmosphere <= 0.0)
+		return sceneColor;
+
+	let scatterPoint = viewerPos + viewerDir * distanceToAtmosphere;
+
+	let stepSize = distanceThroughAtmosphere / f32(atmosphere.primarySteps - 1);
+
+	let scatteredLight = (0.0).xxx;
+	let viewRayOpticalDepth = 0.0;
+
+    let allowMie = maxDist > hitInfo.y;
+    let mu = dot(viewerDir, atmosphere.sunDir);
+    let mumu = mu * mu;
+    let gg = atmosphere.mieScattering * atmosphere.mieScattering;
+    let phaseMie = select(allowMie, 3.0 / (25.1327412287 /* (8 * pi) */) * ((1.0 - gg) * (mumu + 1.0)) / (pow(1.0 + gg - 2.0 * mu * atmosphere.mieScattering, 1.5) * (2.0 + gg)), 0.0);
+
+    let totalMie = (0.0).xxx;
+
+	for i in 0 -> atmosphere.primarySteps
+	{
+		let sunRayLength = raySphere(atmosphere.planetPosition, atmosphere.atmosphereMaxHeight, scatterPoint, atmosphere.sunDir).y;
+		let sunRayOpticalDepth = OpticalDepth_Cylinder(atmosphere.planetPosition, cylinder, atmosphere.atmosphereMaxHeight, atmosphere.absorptionFalloff, scatterPoint, atmosphere.sunDir, sunRayLength, atmosphere.lightSteps);
+		viewRayOpticalDepth = OpticalDepth_Cylinder(atmosphere.planetPosition, cylinder, atmosphere.atmosphereMaxHeight, atmosphere.absorptionFalloff, scatterPoint, -viewerDir, stepSize * f32(i), atmosphere.lightSteps);
+		let transmittance = exp(-(sunRayOpticalDepth + viewRayOpticalDepth) * atmosphere.scatteringCoefficients);
+		let localDensity = DensityEvaluator_Cylinder(atmosphere.planetPosition, cylinder, atmosphere.atmosphereMaxHeight, atmosphere.absorptionFalloff, scatterPoint);
+
+	    totalMie += localDensity * transmittance * stepSize / atmosphere.mieHeight;
+
+		scatteredLight += localDensity * transmittance * atmosphere.scatteringCoefficients * stepSize;
+		scatterPoint += viewerDir * stepSize;
+	}
+
+	scatteredLight *= clamp(maxDist / (atmosphere.atmosphereMaxHeight * 2.0), 0.0, 1.0);
+
+	let skyColor = scatteredLight + phaseMie.xxx * totalMie;
+	let skyLuminance = ComputeLuminance(skyColor);
+	let sceneColorLuminance = ComputeLuminance(sceneColor) + clamp((maxDist - atmosphere.atmosphereMaxHeight * 2.0) / atmosphere.atmosphereMaxHeight, 0.0, 1.0);
+
+	let originalColorTransmittance = clamp(exp(-viewRayOpticalDepth) + (1.0 - skyLuminance), 0.0, 1.0);
+	return originalColorTransmittance * sceneColor + skyColor * sceneColorLuminance;
+}
+
 fn sdRoundBox(pos: vec3[f32], dims: vec3[f32], cornerRadius: f32) -> f32
 {
 	let q = abs(pos) - dims + cornerRadius.xxx;
@@ -297,6 +367,39 @@ fn OpticalDepth_Torus(planetCenter: vec3[f32], torus: vec2[f32], atmosphereMaxHe
 	for i in 0 -> secondaryStepCount
 	{
 		let localDensity = DensityEvaluator_Torus(planetCenter, torus, atmosphereMaxHeight, densityFallOff, densitySamplePoint);
+
+		opticalDepth += localDensity * stepSize;
+		densitySamplePoint += rayDirection * stepSize;
+	}
+
+	return opticalDepth;
+}
+
+fn sdCylinder(pos: vec3[f32], cylinder: vec2[f32]) -> f32
+{
+	let d = abs(vec2[f32](length(pos.yz),pos.x)) - vec2[f32](cylinder.x,cylinder.y);
+	return min(max(d.x,d.y),0.0) + length(max(d, vec2[f32](0.0, 0.0)));
+}
+
+fn DensityEvaluator_Cylinder(planetCenter: vec3[f32], cylinder: vec2[f32], atmosphereMaxHeight: f32, densityFallOff: f32, samplePoint: vec3[f32]) -> f32
+{
+	let heightAboveSurface = sdCylinder(samplePoint - planetCenter, vec2[f32](0.0, cylinder.y * 0.5));
+	let clampedHeight = max(0.0, heightAboveSurface);
+	let height01 = clampedHeight / (atmosphereMaxHeight); //< FIXME
+
+	return exp(-height01 * densityFallOff) * (1.0 - height01);
+}
+
+fn OpticalDepth_Cylinder(planetCenter: vec3[f32], cylinder: vec2[f32], atmosphereMaxHeight: f32, densityFallOff: f32, rayOrigin: vec3[f32], rayDirection: vec3[f32], rayLength: f32, secondaryStepCount: i32) -> f32
+{
+	let densitySamplePoint = rayOrigin;
+	let stepSize = rayLength / f32(secondaryStepCount - 1);
+
+	let opticalDepth = 0.0;
+
+	for i in 0 -> secondaryStepCount
+	{
+		let localDensity = DensityEvaluator_Cylinder(planetCenter, cylinder, atmosphereMaxHeight, densityFallOff, densitySamplePoint);
 
 		opticalDepth += localDensity * stepSize;
 		densitySamplePoint += rayDirection * stepSize;
