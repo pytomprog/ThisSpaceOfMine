@@ -23,10 +23,11 @@
 #include <spdlog/spdlog.h>
 
 SOL_BASE_CLASSES(Nz::BoxCollider3D, Nz::Collider3D);
+SOL_BASE_CLASSES(Nz::CapsuleCollider3D, Nz::Collider3D);
 SOL_BASE_CLASSES(Nz::NodeComponent, Nz::Node);
 SOL_BASE_CLASSES(Nz::PhysCharacter3DComponent, Nz::PhysCharacter3D);
 SOL_BASE_CLASSES(Nz::RigidBody3DComponent, Nz::RigidBody3D);
-SOL_DERIVED_CLASSES(Nz::Collider3D, Nz::BoxCollider3D);
+SOL_DERIVED_CLASSES(Nz::Collider3D, Nz::BoxCollider3D, Nz::CapsuleCollider3D);
 SOL_DERIVED_CLASSES(Nz::Node, Nz::NodeComponent);
 SOL_DERIVED_CLASSES(Nz::PhysCharacter3D, Nz::PhysCharacter3DComponent);
 SOL_DERIVED_CLASSES(Nz::RigidBody3D, Nz::RigidBody3DComponent);
@@ -536,6 +537,11 @@ namespace tsom
 		state.new_usertype<Nz::BoxCollider3D>("BoxCollider3D",
 			sol::base_classes, sol::bases<Nz::Collider3D>(),
 			sol::meta_function::construct, sol::factories(LuaFunction([](const Nz::Vector3f& lengths) { return std::make_shared<Nz::BoxCollider3D>(lengths); }))
+		);
+
+		state.new_usertype<Nz::CapsuleCollider3D>("CapsuleCollider3D",
+			sol::base_classes, sol::bases<Nz::Collider3D>(),
+			sol::meta_function::construct, sol::factories(LuaFunction([](const float height, const float radius) { return std::make_shared<Nz::CapsuleCollider3D>(height, radius); }))
 		);
 	}
 }

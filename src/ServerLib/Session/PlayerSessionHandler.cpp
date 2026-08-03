@@ -743,6 +743,62 @@ namespace tsom
 */
 			return;
 		}
+		else if (message == "/spawnterminal" && m_player->HasPermission(PlayerPermission::Admin))
+		{
+			entt::handle playerEntity = m_player->GetControlledEntityReference();
+			if (!playerEntity)
+				return;
+
+			ServerInstance& serverInstance = m_player->GetServerInstance();
+
+			ServerEnvironment* currentEnvironment = ServerEnvironment::GetEnvironment(playerEntity);
+
+			std::shared_ptr<const EntityClass> terminalClass = serverInstance.GetEntityRegistry().FindClass("terminal");
+			if (!terminalClass)
+				return;
+
+			const auto& characterController = m_player->GetCharacterController();
+			Nz::Quaternionf cameraRot = characterController->GetCameraRotation();
+
+			Nz::Vector3f hitPos, hitNormal;
+			entt::handle hitEntity;
+			std::uint32_t hitSubshapeID;
+			auto callback = [&](const Nz::Physics3DSystem::RaycastHit& hitInfo)
+				{
+					hitPos = hitInfo.hitPosition;
+					hitNormal = hitInfo.hitNormal;
+					hitEntity = hitInfo.hitEntity;
+					hitSubshapeID = hitInfo.subShapeID;
+				};
+
+			struct IgnorePlayer : Nz::PhysObjectLayerFilter3D
+			{
+				bool ShouldCollide(Nz::PhysObjectLayer3D layer) const override
+				{
+					return layer != Constants::ObjectLayerPlayer;
+				}
+			};
+			IgnorePlayer objectFilter;
+
+			auto& playerNode = playerEntity.get<Nz::NodeComponent>();
+
+			Nz::Vector3f cameraPos = characterController->GetEyePosition();
+
+			auto& physSystem = currentEnvironment->GetWorld().GetSystem<Nz::Physics3DSystem>();
+			if (physSystem.RaycastQueryFirst(cameraPos, cameraPos + cameraRot * Nz::Vector3f::Forward() * 10.f, callback, nullptr, &objectFilter))
+			{
+				entt::handle entity = currentEnvironment->CreateEntity();
+				entity.emplace<Nz::NodeComponent>(hitPos, Nz::Quaternionf::RotationBetween(Nz::Vector3f::Up(), hitNormal));
+				entity.emplace<NetworkedComponent>();
+				entity.emplace<DatabaseComponent>();
+
+				auto& terminalInstance = entity.emplace<ClassInstanceComponent>(terminalClass);
+
+				terminalClass->InitAndActivateEntity(entity);
+			}
+
+			return;
+		}
 		else if (message == "/crashserver" && m_player->HasPermission(PlayerPermission::Admin))
 		{
 			int* ptr = (int*) 0x01;
@@ -778,6 +834,7 @@ namespace tsom
 				m_player->SendChatMessage("/spawntree - Spawn a tree where you're looking at");
 				m_player->SendChatMessage("/removetree - Remove a tree where you're looking at");
 				m_player->SendChatMessage("/spawnplatform - Spawn a platform at your position (deprecated)");
+				m_player->SendChatMessage("/spawnterminal - Spawn a terminal at your position");
 				m_player->SendChatMessage("/crashserver - Crash the server (for testing purposes)");
 				m_player->SendChatMessage("/crashserver 1 - Throw an exception on the server (for testing purposes)");
 			}

@@ -149,6 +149,31 @@
             "input": "blocks.json",
             "output": "BlockData.json",
             "method": "Copy"
+        },
+        {
+            "input": "terminal/sci-fi_terminal.obj",
+            "output": "Models/Terminal/Terminal.obj",
+            "method": "Copy"
+        },
+        {
+            "input": "terminal/uv_checker_material_uv_grid_2048x2048.png",
+            "output": "Models/Terminal/textureMap.dds",
+            "method": "Texture"
+        },
+        {
+            "input": "terminal/normalMap1.png",
+            "output": "Models/Terminal/normalMap.dds",
+            "method": "Texture"
+        },
+        {
+            "input": "terminal/metalnessMap1.png",
+            "output": "Models/Terminal/metalnessMap.dds",
+            "method": "Texture"
+        },
+        {
+            "input": "terminal/emissiveMap1.png",
+            "output": "Models/Terminal/emissiveMap.dds",
+            "method": "Texture"
         }
     ]
 }
